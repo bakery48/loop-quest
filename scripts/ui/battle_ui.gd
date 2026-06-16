@@ -14,6 +14,7 @@ var _battle_manager: BattleManager
 var _current_character: Character = null
 var _selected_skill: SkillData = null
 var _pending_command: String = ""
+var _skill_overlay: SkillRewardOverlay = null
 
 ## Which type of target selection we're waiting for.
 enum SelectMode { NONE, ENEMY, ALLY }
@@ -168,37 +169,33 @@ func _on_battle_ended(victory: bool, _gold: int) -> void:
 		# Skill reward is shown via skill_reward_available signal (already emitted)
 
 func _on_skill_reward(skills: Array) -> void:
-	_clear_sub_menu()
-	sub_menu.visible = true
-	var lbl := Label.new()
-	lbl.text = "スキルを1つ選んでください："
-	sub_menu.add_child(lbl)
-	for skill in skills:
-		var btn := Button.new()
-		btn.text = "%s（%s）MP:%d — %s" % [skill.skill_name, _rarity_text(skill.rarity), skill.mp_cost, skill.description]
-		btn.pressed.connect(_on_skill_reward_selected.bind(skill))
-		sub_menu.add_child(btn)
+	_set_commands_enabled(false)
+	_skill_overlay = SkillRewardOverlay.new()
+	add_child(_skill_overlay)
+	_skill_overlay.skill_chosen.connect(_on_skill_card_chosen)
+	_skill_overlay.skipped.connect(_on_skill_card_skipped)
+	_skill_overlay.show_rewards(skills, GameState.party)
 
-func _on_skill_reward_selected(skill: SkillData) -> void:
-	# Give to the first party member who can equip it, or first member
-	var recipient: Character = null
-	for member in GameState.party:
-		if member.can_equip_skill(skill):
-			recipient = member
-			break
-	if recipient == null and not GameState.party.is_empty():
-		recipient = GameState.party[0]
-	if recipient:
-		recipient.add_skill_to_inventory(skill)
-		if recipient.skill_slots.size() < 4:
-			recipient.skill_slots.append(skill)
-		_log("「%s」を %s が習得！" % [skill.skill_name, recipient.char_name])
-	_clear_sub_menu()
-	await get_tree().create_timer(1.0).timeout
+func _on_skill_card_chosen(skill: SkillData, recipient: Character) -> void:
+	recipient.add_skill_to_inventory(skill)
+	if recipient.skill_slots.size() < 4:
+		recipient.skill_slots.append(skill)
+	_log("「%s」を %s が習得！" % [skill.skill_name, recipient.char_name])
+	await get_tree().create_timer(0.5).timeout
+	_after_skill_reward()
+
+func _on_skill_card_skipped() -> void:
+	_log("スキルをスキップした。")
+	_after_skill_reward()
+
+func _after_skill_reward() -> void:
+	if _skill_overlay:
+		_skill_overlay.queue_free()
+		_skill_overlay = null
+	await get_tree().create_timer(0.8).timeout
 	if _is_boss_battle:
 		var next_chapter := GameState.current_chapter + 1
 		if next_chapter > 3:
-			# Full clear
 			GameState.end_run(true)
 			get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
 			return
