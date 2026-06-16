@@ -1,14 +1,14 @@
 extends Node
 
 ## ClassDatabase — singleton. All ClassData definitions live here.
-## Access via ClassDatabase.get_class("WARRIOR") etc.
+## Access via ClassDatabase.find_class("WARRIOR") etc.
 
 var _classes: Dictionary = {}
 
 func _ready() -> void:
 	_register_all()
 
-func get_class(class_id: String) -> ClassData:
+func find_class(class_id: String) -> ClassData:
 	return _classes.get(class_id, null)
 
 func get_starter_classes() -> Array:

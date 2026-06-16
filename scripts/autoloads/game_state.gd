@@ -43,7 +43,7 @@ func start_new_run(selected_class_ids: Array[String]) -> void:
 	current_node_id = -1
 
 	for class_id in selected_class_ids:
-		var class_data := ClassDatabase.get_class(class_id)
+		var class_data := ClassDatabase.find_class(class_id)
 		if class_data:
 			var character := Character.create(class_data)
 			party.append(character)
@@ -104,7 +104,7 @@ func get_recruit_candidates() -> Array[ClassData]:
 	var candidates: Array[ClassData] = []
 	for class_id in unlocked_classes:
 		if not class_id in current_ids:
-			var cd := ClassDatabase.get_class(class_id)
+			var cd := ClassDatabase.find_class(class_id)
 			if cd:
 				candidates.append(cd)
 	candidates.shuffle()
@@ -147,7 +147,7 @@ func execute_party_swap(leaving_index: int, joining_class_id: String,
 				recipient.skill_slots.append(skill)
 
 	# Replace the leaving member with the new one
-	var class_data := ClassDatabase.get_class(joining_class_id)
+	var class_data := ClassDatabase.find_class(joining_class_id)
 	if class_data:
 		party[leaving_index] = Character.create(class_data)
 	party_changed.emit()
