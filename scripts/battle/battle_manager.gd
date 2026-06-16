@@ -640,7 +640,6 @@ func _find_cover_guardian(target: Character) -> Character:
 	for member in party:
 		if member.is_alive() and member != target:
 			if member.has_status(StatusEffect.EffectType.COVER_ACTIVE):
-				var eff := member.get_status(StatusEffect.EffectType.COVER_ACTIVE)
 				member.remove_status_by_type(StatusEffect.EffectType.COVER_ACTIVE)
 				return member
 	return null

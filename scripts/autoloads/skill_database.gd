@@ -95,7 +95,7 @@ func _make(sname: String, desc: String, mp: int, rarity: SkillData.Rarity,
 	s.description = desc
 	s.mp_cost = mp
 	s.rarity = rarity
-	s.allowed_classes = classes
+	s.allowed_classes.assign(classes)
 	s.effect_type = effect
 	s.power = power
 	s.duration = duration
