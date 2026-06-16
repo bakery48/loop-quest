@@ -22,9 +22,7 @@ func _on_node_entered(node: MapNodeData) -> void:
 	match node.node_type:
 		MapNodeData.NodeType.COMBAT, MapNodeData.NodeType.ELITE, MapNodeData.NodeType.BOSS:
 			_go_to(SCENE_BATTLE)
-		MapNodeData.NodeType.CAMPFIRE, MapNodeData.NodeType.SHOP,
-		MapNodeData.NodeType.EVENT, MapNodeData.NodeType.RECRUIT:
-			# For now, return to map after a brief pause (full screens TBD)
+		MapNodeData.NodeType.CAMPFIRE, MapNodeData.NodeType.SHOP, MapNodeData.NodeType.EVENT, MapNodeData.NodeType.RECRUIT:
 			pass
 
 func _on_run_ended(_victory: bool, _gold: int) -> void:

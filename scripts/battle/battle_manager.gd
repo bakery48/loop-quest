@@ -585,7 +585,7 @@ func _execute_enemy_action(enemy: EnemyInstance, action: EnemyAction) -> void:
 # ── Helpers ───────────────────────────────────────────────────
 
 func _calculate_damage(raw_atk: int, raw_def: int) -> int:
-	return max(1, raw_atk - raw_def)
+	return maxi(1, raw_atk - raw_def)
 
 func _on_player_dealt_damage(_attacker: Character, _target: EnemyInstance, _damage: int) -> void:
 	# Archer: if attacking focused target, increment stacks

@@ -37,7 +37,7 @@ func take_damage(raw_amount: int) -> int:
 	if shield:
 		_remove_status(StatusEffect.EffectType.SHIELD)
 		return 0
-	current_hp = max(0, current_hp - reduced)
+	current_hp = maxi(0, current_hp - reduced)
 	hp_changed.emit(current_hp, enemy_data.max_hp)
 	# Check enrage threshold
 	if not is_enraged and enemy_data.enrage_hp_threshold > 0.0:

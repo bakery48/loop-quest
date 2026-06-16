@@ -160,8 +160,8 @@ func add_status(effect: StatusEffect) -> void:
 			StatusEffect.EffectType.FOCUS_AIM]:
 		var existing := get_status(effect.effect_type)
 		if existing:
-			existing.stacks = min(existing.stacks + effect.stacks, 5)
-			existing.duration = max(existing.duration, effect.duration)
+			existing.stacks = mini(existing.stacks + effect.stacks, 5)
+			existing.duration = maxi(existing.duration, effect.duration)
 			status_added.emit(existing)
 			return
 	status_effects.append(effect)
