@@ -160,7 +160,7 @@ func _register_warrior_skills() -> void:
 
 func _register_mage_skills() -> void:
 	# ファイアII — Mage, Sage, Summoner
-	_add(_make("ファイアII", "敵1体または全体に火属性ダメージ",
+	_add(_make("ファイアII", "敵1体に火属性ダメージ",
 		18, SkillData.Rarity.COMMON, ["MAGE", "SAGE", "SUMMONER"],
 		SkillData.EffectType.DAMAGE_SINGLE, 1.8, 0, "", true))
 
