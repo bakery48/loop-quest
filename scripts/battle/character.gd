@@ -117,28 +117,28 @@ func is_alive() -> bool:
 	return current_hp > 0
 
 func take_damage(raw_amount: int) -> int:
-	var reduced := int(raw_amount / get_effective_def() * 10.0)
-	reduced = max(1, reduced)
+	var reduced: int = int(raw_amount / get_effective_def() * 10.0)
+	reduced = maxi(1, reduced)
 	# Check shield
 	var shield := get_status(StatusEffect.EffectType.SHIELD)
 	if shield:
 		remove_status_by_type(StatusEffect.EffectType.SHIELD)
 		status_removed.emit(StatusEffect.EffectType.SHIELD)
 		return 0
-	current_hp = max(0, current_hp - reduced)
+	current_hp = maxi(0, current_hp - reduced)
 	hp_changed.emit(current_hp, max_hp)
 	if current_hp == 0:
 		died.emit()
 	return reduced
 
 func heal(amount: int) -> int:
-	var actual := min(amount, max_hp - current_hp)
+	var actual: int = mini(amount, max_hp - current_hp)
 	current_hp += actual
 	hp_changed.emit(current_hp, max_hp)
 	return actual
 
 func restore_mp(amount: int) -> int:
-	var actual := min(amount, max_mp - current_mp)
+	var actual: int = mini(amount, max_mp - current_mp)
 	current_mp += actual
 	mp_changed.emit(current_mp, max_mp)
 	return actual

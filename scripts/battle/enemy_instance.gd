@@ -32,7 +32,7 @@ func is_alive() -> bool:
 
 ## Returns actual damage taken. Also triggers enrage if threshold is crossed.
 func take_damage(raw_amount: int) -> int:
-	var reduced := max(1, raw_amount - get_effective_def())
+	var reduced: int = maxi(1, raw_amount - get_effective_def())
 	var shield := _get_status(StatusEffect.EffectType.SHIELD)
 	if shield:
 		_remove_status(StatusEffect.EffectType.SHIELD)
@@ -51,7 +51,7 @@ func take_damage(raw_amount: int) -> int:
 	return reduced
 
 func heal(amount: int) -> int:
-	var actual := min(amount, enemy_data.max_hp - current_hp)
+	var actual: int = mini(amount, enemy_data.max_hp - current_hp)
 	current_hp += actual
 	hp_changed.emit(current_hp, enemy_data.max_hp)
 	return actual

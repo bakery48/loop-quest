@@ -611,8 +611,8 @@ func _apply_regen_poison(member: Character) -> void:
 				var h := member.heal(int(effect.value))
 				log_message.emit("%s がリジェネで HP+%d。" % [member.char_name, h])
 			StatusEffect.EffectType.POISON:
-				var dmg := max(1, int(effect.value))
-				member.current_hp = max(0, member.current_hp - dmg)
+				var dmg: int = maxi(1, int(effect.value))
+				member.current_hp = maxi(0, member.current_hp - dmg)
 				member.hp_changed.emit(member.current_hp, member.max_hp)
 				log_message.emit("%s が毒で HP-%d。" % [member.char_name, dmg])
 				if member.current_hp == 0:
