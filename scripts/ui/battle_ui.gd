@@ -280,14 +280,11 @@ func _on_skill_list_item_selected(skill: SkillData) -> void:
 	_clear_sub_menu()
 	# Determine target type from effect
 	match skill.effect_type:
-		SkillData.EffectType.DAMAGE_SINGLE, SkillData.EffectType.DAMAGE_SINGLE_CONDITIONAL,
-		SkillData.EffectType.DEBUFF_DEF, SkillData.EffectType.STATUS_TAUNT:
+		SkillData.EffectType.DAMAGE_SINGLE, SkillData.EffectType.DAMAGE_SINGLE_CONDITIONAL, SkillData.EffectType.DEBUFF_DEF, SkillData.EffectType.STATUS_TAUNT:
 			_request_enemy_target()
 		SkillData.EffectType.DAMAGE_ALL, SkillData.EffectType.BUFF_ATK:
 			_battle_manager.submit_player_action("skill", _selected_skill, -1, -1)
-		SkillData.EffectType.HEAL_SINGLE, SkillData.EffectType.BUFF_DEF,
-		SkillData.EffectType.BUFF_SHIELD, SkillData.EffectType.COVER_ALLY,
-		SkillData.EffectType.RESTORE_MP:
+		SkillData.EffectType.HEAL_SINGLE, SkillData.EffectType.BUFF_DEF, SkillData.EffectType.BUFF_SHIELD, SkillData.EffectType.COVER_ALLY, SkillData.EffectType.RESTORE_MP:
 			_request_ally_target()
 		_:
 			_battle_manager.submit_player_action("skill", _selected_skill, -1, -1)
