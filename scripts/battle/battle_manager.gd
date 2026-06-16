@@ -164,8 +164,8 @@ func _calculate_turn_order() -> void:
 			turn_order.append(enemy)
 	# Sort by effective speed descending
 	turn_order.sort_custom(func(a, b):
-		var spd_a := a.get_effective_spd() if a is Character else a.enemy_data.spd
-		var spd_b := b.get_effective_spd() if b is Character else b.enemy_data.spd
+		var spd_a: int = a.get_effective_spd() if a is Character else a.enemy_data.spd
+		var spd_b: int = b.get_effective_spd() if b is Character else b.enemy_data.spd
 		return spd_a > spd_b
 	)
 
@@ -173,7 +173,7 @@ func _advance_turn() -> void:
 	# Remove dead combatants from remaining turn order
 	while current_turn_index < turn_order.size():
 		var actor = turn_order[current_turn_index]
-		var alive := actor.is_alive() if actor is Character else (actor as EnemyInstance).is_alive()
+		var alive: bool = actor.is_alive() if actor is Character else (actor as EnemyInstance).is_alive()
 		if alive:
 			break
 		current_turn_index += 1
