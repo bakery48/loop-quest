@@ -1,0 +1,54 @@
+[gd_scene load_steps=2 format=3 uid="uid://e5wbnpqvr7xyk"]
+
+[ext_resource type="Script" path="res://scripts/ui/battle_ui.gd" id="1_batui"]
+
+[node name="Battle" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_batui")
+
+[node name="BattleManager" type="Node" parent="."]
+script = null
+
+[node name="VBox" type="VBoxContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = -16.0
+
+[node name="EnemyArea" type="HBoxContainer" parent="VBox"]
+custom_minimum_size = Vector2(0, 120)
+
+[node name="ActionLog" type="RichTextLabel" parent="VBox"]
+custom_minimum_size = Vector2(0, 200)
+size_flags_vertical = 3
+scroll_following = true
+text = "バトル開始！"
+
+[node name="PartyArea" type="HBoxContainer" parent="VBox"]
+custom_minimum_size = Vector2(0, 80)
+
+[node name="CommandPanel" type="VBoxContainer" parent="VBox"]
+custom_minimum_size = Vector2(0, 160)
+
+[node name="ActorLabel" type="Label" parent="VBox/CommandPanel"]
+text = ""
+
+[node name="CommandButtons" type="HBoxContainer" parent="VBox/CommandPanel"]
+
+[node name="FightBtn" type="Button" parent="VBox/CommandPanel/CommandButtons"]
+text = "たたかう"
+
+[node name="SkillBtn" type="Button" parent="VBox/CommandPanel/CommandButtons"]
+text = "スキル"
+
+[node name="ItemBtn" type="Button" parent="VBox/CommandPanel/CommandButtons"]
+text = "どうぐ"
+
+[node name="UniqueBtn" type="Button" parent="VBox/CommandPanel/CommandButtons"]
+text = "固有コマンド"
+
+[node name="SubMenu" type="VBoxContainer" parent="VBox/CommandPanel"]
+visible = false
