@@ -4,7 +4,7 @@ extends RefCounted
 const PASSIVE_HEAL_PERCENT: float = 0.08  # 8% of max HP per turn
 
 ## 癒しのオーラ: auto-heal the lowest HP ally each turn.
-static func apply_passive_heal(cleric: Character, party: Array) -> String:
+static func apply_passive_heal(cleric: Character, party: Array[Character]) -> String:
 	if not cleric.is_alive():
 		return ""
 	var lowest: Character = null

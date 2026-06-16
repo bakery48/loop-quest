@@ -5,7 +5,7 @@ const PASSIVE_MP_RESTORE: int = 5
 
 ## 鼓舞のオーラ: restore MP to all party members at the start of each turn.
 ## Called by BattleManager at round start.
-static func apply_passive_mp_regen(hero: Character, party: Array) -> String:
+static func apply_passive_mp_regen(hero: Character, party: Array[Character]) -> String:
 	var msg := ""
 	for member in party:
 		if member is Character and member.is_alive():

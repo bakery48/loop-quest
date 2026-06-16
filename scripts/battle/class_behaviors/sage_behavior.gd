@@ -13,7 +13,7 @@ static func execute_unique(sage: Character, skill: SkillData) -> String:
 
 ## 千里眼: reveal next action of all enemies (called at round start).
 ## Stores telegraphed_action on each EnemyInstance so UI can display it.
-static func apply_passive_foresight(sage: Character, enemies: Array) -> String:
+static func apply_passive_foresight(sage: Character, enemies: Array[EnemyInstance]) -> String:
 	if sage.class_data.class_type != ClassData.ClassType.SAGE:
 		return ""
 	for enemy in enemies:
