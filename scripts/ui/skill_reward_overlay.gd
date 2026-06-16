@@ -196,9 +196,15 @@ func _show_recipient_step(skill: SkillData, eligible: Array[Character]) -> void:
 		panel.custom_minimum_size = Vector2(140, 100)
 		var style := StyleBoxFlat.new()
 		style.bg_color = Color(0.12, 0.12, 0.16)
-		style.border_width_left = style.border_width_right = style.border_width_top = style.border_width_bottom = 2
+		style.border_width_left = 2
+		style.border_width_right = 2
+		style.border_width_top = 2
+		style.border_width_bottom = 2
 		style.border_color = Color(0.4, 0.7, 1.0)
-		style.corner_radius_top_left = style.corner_radius_top_right = style.corner_radius_bottom_left = style.corner_radius_bottom_right = 6
+		style.corner_radius_top_left = 6
+		style.corner_radius_top_right = 6
+		style.corner_radius_bottom_left = 6
+		style.corner_radius_bottom_right = 6
 		panel.add_theme_stylebox_override("panel", style)
 
 		var vbox := VBoxContainer.new()
