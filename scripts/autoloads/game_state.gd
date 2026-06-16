@@ -215,7 +215,7 @@ func load_meta() -> void:
 	var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
 	if not file:
 		return
-	var result := JSON.parse_string(file.get_as_text())
+	var result: Variant = JSON.parse_string(file.get_as_text())
 	if result == null or not result is Dictionary:
 		return
 	var data: Dictionary = result
