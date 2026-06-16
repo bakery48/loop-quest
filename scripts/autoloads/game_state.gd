@@ -97,13 +97,59 @@ func add_skill_to_party_member(skill: SkillData, char_index: int) -> void:
 	party[char_index].add_skill_to_inventory(skill)
 	party_changed.emit()
 
-func replace_party_member(old_index: int, new_class_id: String) -> void:
-	if old_index < 0 or old_index >= party.size():
+## Returns up to 3 class candidates for recruit nodes:
+## unlocked classes that are not already in the party.
+func get_recruit_candidates() -> Array[ClassData]:
+	var current_ids := get_party_class_ids()
+	var candidates: Array[ClassData] = []
+	for class_id in unlocked_classes:
+		if not class_id in current_ids:
+			var cd := ClassDatabase.get_class(class_id)
+			if cd:
+				candidates.append(cd)
+	candidates.shuffle()
+	# Always offer exactly 3 (repeat unlocked classes if necessary)
+	if candidates.size() < 3:
+		var all := ClassDatabase.get_all_classes()
+		all.shuffle()
+		for cd in all:
+			if candidates.size() >= 3:
+				break
+			if not cd in candidates:
+				candidates.append(cd)
+	return candidates.slice(0, 3)
+
+## Execute a party swap after the player has confirmed skill inheritance.
+## leaving_index: index in party of the departing character.
+## joining_class_id: class_id of the new character.
+## inheritance_map: Dictionary { SkillData → int } mapping each departing skill
+##   to the party index of who receives it (-1 = LOST).
+##   Note: party still contains the leaving member when this dict is built,
+##   so indices refer to the old party. New member replaces leaving_index.
+func execute_party_swap(leaving_index: int, joining_class_id: String,
+		inheritance_map: Dictionary) -> void:
+	if leaving_index < 0 or leaving_index >= party.size():
 		return
-	var class_data := ClassDatabase.get_class(new_class_id)
-	if class_data == null:
-		return
-	party[old_index] = Character.create(class_data)
+	var leaving := party[leaving_index]
+
+	# Transfer skills per inheritance map
+	for skill in inheritance_map:
+		var target_index: int = inheritance_map[skill]
+		if target_index < 0 or target_index >= party.size():
+			continue  # LOST
+		if target_index == leaving_index:
+			continue  # Shouldn't happen, but guard
+		var recipient := party[target_index]
+		if recipient.can_equip_skill(skill):
+			recipient.add_skill_to_inventory(skill)
+			# Auto-equip if there's a free slot
+			if recipient.skill_slots.size() < 4:
+				recipient.skill_slots.append(skill)
+
+	# Replace the leaving member with the new one
+	var class_data := ClassDatabase.get_class(joining_class_id)
+	if class_data:
+		party[leaving_index] = Character.create(class_data)
 	party_changed.emit()
 
 func get_party_class_ids() -> Array[String]:

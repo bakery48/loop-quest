@@ -79,20 +79,17 @@ func _update_party_status() -> void:
 		parts.append("%s HP:%d/%d" % [member.char_name, member.current_hp, member.max_hp])
 	party_status.text = "  |  ".join(parts)
 
-# ── Placeholder Node Actions ──────────────────────────────────
-
 func _show_campfire_options() -> void:
-	# Minimal: just heal party 30% max HP
-	for member in GameState.party:
-		member.heal(int(member.max_hp * 0.3))
-	_update_party_status()
-	_refresh_map()
+	get_tree().change_scene_to_file("res://scenes/campfire.tscn")
 
 func _show_shop() -> void:
-	_refresh_map()  # Shop UI placeholder
+	get_tree().change_scene_to_file("res://scenes/shop.tscn")
 
 func _show_event() -> void:
-	_refresh_map()  # Event UI placeholder
+	# Event system is not yet implemented — treat as a small gold bonus for now.
+	var bonus := GameState.run_rng.randi_range(10, 30)
+	GameState.collect_gold(bonus)
+	_refresh_map()
 
 func _show_recruit() -> void:
-	_refresh_map()  # Recruit UI placeholder
+	get_tree().change_scene_to_file("res://scenes/recruit.tscn")
