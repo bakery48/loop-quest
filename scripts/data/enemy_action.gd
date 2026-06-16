@@ -8,6 +8,7 @@ enum ActionType {
 	BUFF_SELF_DEF,
 	DEBUFF_TARGET_DEF,
 	HEAL_SELF,
+	APPLY_POISON,    # Inflict poison on a single target
 	SPECIAL,
 }
 

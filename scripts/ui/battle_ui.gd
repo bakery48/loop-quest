@@ -42,42 +42,26 @@ func _connect_buttons() -> void:
 	item_btn.pressed.connect(_on_item_pressed)
 	unique_btn.pressed.connect(_on_unique_pressed)
 
+var _is_boss_battle: bool = false
+
 func _start_battle() -> void:
 	var node := GameState.get_current_node()
 	var is_elite := node != null and node.node_type == MapNodeData.NodeType.ELITE
-	var is_boss := node != null and node.node_type == MapNodeData.NodeType.BOSS
+	_is_boss_battle = node != null and node.node_type == MapNodeData.NodeType.BOSS
 
-	var enemies := _generate_enemies(GameState.current_chapter, is_elite, is_boss)
-	_battle_manager.setup_battle(GameState.party, enemies, is_elite)
+	var enemy_data_list := EnemyDatabase.get_encounter(
+		GameState.current_chapter, is_elite, _is_boss_battle, GameState.run_rng)
+	_battle_manager.setup_battle(GameState.party, enemy_data_list, is_elite)
 	_build_enemy_area()
 	_build_party_area()
+
+	# Show boss intro message
+	if _is_boss_battle and not enemy_data_list.is_empty():
+		var intro: String = enemy_data_list[0].boss_intro_message
+		if intro != "":
+			_log("⚔ " + intro)
+
 	_battle_manager.start_battle()
-
-func _generate_enemies(chapter: int, elite: bool, boss: bool) -> Array[EnemyData]:
-	# Placeholder: generate simple enemies based on chapter
-	var out: Array[EnemyData] = []
-	if boss:
-		out.append(_make_enemy("ボス", chapter * 200, chapter * 25, chapter * 8, chapter * 7, true, true))
-	elif elite:
-		out.append(_make_enemy("精鋭モンスター", chapter * 80, chapter * 14, chapter * 5, chapter * 5, true, false))
-		out.append(_make_enemy("精鋭モンスターB", chapter * 60, chapter * 12, chapter * 4, chapter * 6, true, false))
-	else:
-		out.append(_make_enemy("スライム", chapter * 40, chapter * 8, chapter * 3, chapter * 4, true, false))
-		out.append(_make_enemy("ゴブリン", chapter * 35, chapter * 9, chapter * 2, chapter * 5, true, false))
-	return out
-
-func _make_enemy(name: String, hp: int, atk: int, def_v: int, spd: int, steal: bool, _is_boss: bool) -> EnemyData:
-	var d := EnemyData.new()
-	d.enemy_name = name
-	d.max_hp = hp; d.atk = atk; d.def_stat = def_v; d.spd = spd
-	d.gold_min = atk; d.gold_max = atk * 3
-	d.can_be_stolen_from = steal
-	# Add a basic attack action
-	var attack := EnemyAction.new()
-	attack.action_name = "通常攻撃"; attack.action_type = EnemyAction.ActionType.ATTACK_SINGLE
-	attack.power = 1.0; attack.weight = 1.0
-	d.actions.append(attack)
-	return d
 
 # ── UI Builders ───────────────────────────────────────────────
 
@@ -91,14 +75,36 @@ func _build_enemy_area() -> void:
 	for i in range(_battle_manager.enemies.size()):
 		var enemy := _battle_manager.enemies[i]
 		var vbox := VBoxContainer.new()
+		vbox.custom_minimum_size = Vector2(180, 0)
+
 		var name_lbl := Label.new()
-		name_lbl.text = enemy.enemy_data.enemy_name
+		var tier_icon := ""
+		match enemy.enemy_data.tier:
+			EnemyData.EnemyTier.ELITE: tier_icon = "⚡"
+			EnemyData.EnemyTier.BOSS: tier_icon = "👑"
+		name_lbl.text = "%s%s" % [tier_icon, enemy.enemy_data.enemy_name]
+
 		var hp_lbl := Label.new()
 		hp_lbl.text = "HP: %d/%d" % [enemy.current_hp, enemy.enemy_data.max_hp]
 		_enemy_hp_labels.append(hp_lbl)
-		enemy.hp_changed.connect(func(hp, max_hp): hp_lbl.text = "HP: %d/%d" % [hp, max_hp])
+
+		var status_lbl := Label.new()
+		status_lbl.text = ""
+
+		enemy.hp_changed.connect(func(hp, max_hp):
+			hp_lbl.text = "HP: %d/%d" % [hp, max_hp]
+			# Update status display
+			var statuses: Array[String] = []
+			for eff in enemy.status_effects:
+				statuses.append(eff.get_display_name())
+			status_lbl.text = " ".join(statuses)
+			if enemy.is_enraged:
+				name_lbl.modulate = Color.RED
+		)
+
 		vbox.add_child(name_lbl)
 		vbox.add_child(hp_lbl)
+		vbox.add_child(status_lbl)
 		enemy_area.add_child(vbox)
 
 func _build_party_area() -> void:
@@ -144,16 +150,22 @@ func _on_player_input_needed(character: Character, _commands: Array) -> void:
 
 func _on_battle_ended(victory: bool, _gold: int) -> void:
 	_set_commands_enabled(false)
-	if victory:
-		_log("\n✨ 勝利！")
-	else:
+	if not victory:
 		_log("\n💀 全滅…")
-	await get_tree().create_timer(3.0).timeout
-	if victory:
-		get_tree().change_scene_to_file("res://scenes/map/map.tscn")
-	else:
+		await get_tree().create_timer(3.0).timeout
 		GameState.end_run(false)
 		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+		return
+
+	# Victory
+	if _is_boss_battle:
+		var next_chapter := GameState.current_chapter + 1
+		if next_chapter > 3:
+			# Final boss cleared — run complete, but still offer skill reward
+			_log("\n🏆 全クリア！魔王の将軍を倒した！")
+		else:
+			_log("\n✨ ボス撃破！第%d章へ進む…" % next_chapter)
+		# Skill reward is shown via skill_reward_available signal (already emitted)
 
 func _on_skill_reward(skills: Array) -> void:
 	_clear_sub_menu()
@@ -182,8 +194,15 @@ func _on_skill_reward_selected(skill: SkillData) -> void:
 			recipient.skill_slots.append(skill)
 		_log("「%s」を %s が習得！" % [skill.skill_name, recipient.char_name])
 	_clear_sub_menu()
-	# Return to map
 	await get_tree().create_timer(1.0).timeout
+	if _is_boss_battle:
+		var next_chapter := GameState.current_chapter + 1
+		if next_chapter > 3:
+			# Full clear
+			GameState.end_run(true)
+			get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+			return
+		GameState.advance_to_chapter(next_chapter)
 	get_tree().change_scene_to_file("res://scenes/map/map.tscn")
 
 func _on_enemy_telegraphed(enemy: EnemyInstance, action: EnemyAction) -> void:

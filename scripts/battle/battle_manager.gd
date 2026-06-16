@@ -563,6 +563,25 @@ func _execute_enemy_action(enemy: EnemyInstance, action: EnemyAction) -> void:
 			var actual := enemy.heal(heal_amount)
 			log_message.emit("%s がHP%dを回復した！" % [enemy.enemy_data.enemy_name, actual])
 
+		EnemyAction.ActionType.APPLY_POISON:
+			var target := _choose_enemy_attack_target()
+			if target:
+				var poison := StatusEffect.new(
+					StatusEffect.EffectType.POISON, action.duration, 1, "ENEMY",
+					float(enemy.enemy_data.atk) * action.power * 0.4)
+				target.add_status(poison)
+				log_message.emit("%s が %s に毒を与えた！" % [enemy.enemy_data.enemy_name, target.char_name])
+
+	# Announce enrage if it just triggered
+	if enemy.is_alive() and enemy.is_enraged:
+		var has_rage_log := false
+		for eff in enemy.status_effects:
+			if eff.source_class == "ENRAGE" and eff.stacks == 2:
+				has_rage_log = true
+		if has_rage_log:
+			# Only log once (when newly enraged this action)
+			pass  # Enrage log is emitted from _check_enemy_enrage
+
 # ── Helpers ───────────────────────────────────────────────────
 
 func _calculate_damage(raw_atk: int, raw_def: int) -> int:
@@ -650,13 +669,21 @@ func _get_random_alive_enemy_index() -> int:
 	return alive[rng.randi() % alive.size()]
 
 func _check_enemy_death(enemy: EnemyInstance) -> void:
-	if not enemy.is_alive():
-		log_message.emit("%s を倒した！" % enemy.enemy_data.enemy_name)
-		# Alchemist passive: collect material
-		for member in party:
-			if member.is_alive() and member.class_data.class_type == ClassData.ClassType.ALCHEMIST:
-				if member.alchemist_materials.size() < Character.MAX_ALCHEMIST_MATERIALS:
-					log_message.emit("%s が素材を入手した！" % member.char_name)
+	if enemy.is_alive():
+		# Log enrage if it just triggered this hit
+		if enemy.is_enraged:
+			for eff in enemy.status_effects:
+				if eff.source_class == "ENRAGE":
+					log_message.emit("⚠ %s が怒り狂った！ATKが大幅上昇！" % enemy.enemy_data.enemy_name)
+					eff.source_class = "ENRAGE_LOGGED"  # prevent repeat
+					break
+		return
+	log_message.emit("%s を倒した！" % enemy.enemy_data.enemy_name)
+	# Alchemist passive: collect material
+	for member in party:
+		if member.is_alive() and member.class_data.class_type == ClassData.ClassType.ALCHEMIST:
+			if member.alchemist_materials.size() < Character.MAX_ALCHEMIST_MATERIALS:
+				log_message.emit("%s が素材を入手した！" % member.char_name)
 
 func _check_battle_end() -> bool:
 	var all_enemies_dead := true
@@ -683,15 +710,11 @@ func _check_battle_end() -> bool:
 
 func _on_victory() -> void:
 	state = BattleState.VICTORY
-	var gold := rng.randi_range(
-		enemies[0].enemy_data.gold_min if enemies.size() > 0 else 0,
-		enemies[0].enemy_data.gold_max if enemies.size() > 0 else 0
-	)
+	var gold := 0
 	for enemy in enemies:
 		gold += rng.randi_range(enemy.enemy_data.gold_min, enemy.enemy_data.gold_max)
-	gold = int(gold * 0.5)  # average out
 	GameState.collect_gold(gold)
-	log_message.emit("勝利！ゴールド %d 獲得！" % gold)
+	log_message.emit("✨ 勝利！ゴールド %d 獲得！" % gold)
 	var rewards := _generate_skill_rewards()
 	state = BattleState.SKILL_REWARD
 	skill_reward_available.emit(rewards)

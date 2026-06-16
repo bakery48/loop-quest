@@ -20,6 +20,7 @@ config/features=PackedStringArray("4.3", "GL Compatibility")
 GameState="*res://scripts/autoloads/game_state.gd"
 SkillDatabase="*res://scripts/autoloads/skill_database.gd"
 ClassDatabase="*res://scripts/autoloads/class_database.gd"
+EnemyDatabase="*res://scripts/autoloads/enemy_database.gd"
 
 [display]
 

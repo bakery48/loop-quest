@@ -11,6 +11,8 @@ var status_effects: Array[StatusEffect] = []
 var has_been_stolen: bool = false
 ## Set by Sage's 千里眼 passive so the UI can telegraph the enemy's intent.
 var telegraphed_action: EnemyAction = null
+## True once the boss crosses its enrage_hp_threshold.
+var is_enraged: bool = false
 
 static var _next_id: int = 0
 
@@ -28,6 +30,7 @@ static func reset_id_counter() -> void:
 func is_alive() -> bool:
 	return current_hp > 0
 
+## Returns actual damage taken. Also triggers enrage if threshold is crossed.
 func take_damage(raw_amount: int) -> int:
 	var reduced := max(1, raw_amount - get_effective_def())
 	var shield := _get_status(StatusEffect.EffectType.SHIELD)
@@ -36,6 +39,13 @@ func take_damage(raw_amount: int) -> int:
 		return 0
 	current_hp = max(0, current_hp - reduced)
 	hp_changed.emit(current_hp, enemy_data.max_hp)
+	# Check enrage threshold
+	if not is_enraged and enemy_data.enrage_hp_threshold > 0.0:
+		var ratio := float(current_hp) / float(enemy_data.max_hp)
+		if ratio <= enemy_data.enrage_hp_threshold:
+			is_enraged = true
+			var rage := StatusEffect.new(StatusEffect.EffectType.ATK_BUFF, -1, 2, "ENRAGE")
+			status_effects.append(rage)
 	if current_hp == 0:
 		died.emit()
 	return reduced
