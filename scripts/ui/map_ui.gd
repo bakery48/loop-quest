@@ -86,10 +86,7 @@ func _show_shop() -> void:
 	get_tree().change_scene_to_file("res://scenes/shop.tscn")
 
 func _show_event() -> void:
-	# Event system is not yet implemented — treat as a small gold bonus for now.
-	var bonus := GameState.run_rng.randi_range(10, 30)
-	GameState.collect_gold(bonus)
-	_refresh_map()
+	get_tree().change_scene_to_file("res://scenes/event.tscn")
 
 func _show_recruit() -> void:
 	get_tree().change_scene_to_file("res://scenes/recruit.tscn")
