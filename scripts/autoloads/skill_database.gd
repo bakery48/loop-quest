@@ -159,9 +159,9 @@ func _register_warrior_skills() -> void:
 		SkillData.EffectType.DAMAGE_SINGLE_CONDITIONAL, 2.5, 0, "consumes_warrior_stacks"))
 
 func _register_mage_skills() -> void:
-	# ファイアII — Mage, Sage
+	# ファイアII — Mage, Sage, Summoner
 	_add(_make("ファイアII", "敵1体または全体に火属性ダメージ",
-		18, SkillData.Rarity.COMMON, ["MAGE", "SAGE"],
+		18, SkillData.Rarity.COMMON, ["MAGE", "SAGE", "SUMMONER"],
 		SkillData.EffectType.DAMAGE_SINGLE, 1.8, 0, "", true))
 
 	# メテオ — Mage, Sage (LEGENDARY)
@@ -201,9 +201,9 @@ func _register_thief_skills() -> void:
 		8, SkillData.Rarity.COMMON, ["THIEF"],
 		SkillData.EffectType.STATUS_STEALTH, 1.0, 2))
 
-	# 毒手 — Thief, Archer
+	# 毒手 — Thief, Archer, Alchemist
 	_add(_make("毒手", "敵1体に毒を付与（毎ターンHP減少）",
-		10, SkillData.Rarity.COMMON, ["THIEF", "ARCHER"],
+		10, SkillData.Rarity.COMMON, ["THIEF", "ARCHER", "ALCHEMIST"],
 		SkillData.EffectType.DAMAGE_SINGLE, 0.8, 0))
 
 func _register_archer_skills() -> void:

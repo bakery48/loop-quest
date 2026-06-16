@@ -46,6 +46,17 @@ func _base(class_id: String, name: String, type: ClassData.ClassType, starter: b
 	d.is_starter = starter
 	return d
 
+## Resolves skill names to SkillData via SkillDatabase (loaded before this autoload).
+func _skills(names: Array) -> Array[SkillData]:
+	var out: Array[SkillData] = []
+	for n: String in names:
+		var s := SkillDatabase.get_skill(n)
+		if s:
+			out.append(s)
+		else:
+			push_warning("ClassDatabase: 初期スキル「%s」が見つかりません" % n)
+	return out
+
 func _make_hero() -> ClassData:
 	var d := _base("HERO", "勇者", ClassData.ClassType.HERO, true)
 	d.base_hp = 105; d.base_mp = 55; d.base_atk = 11; d.base_def = 7; d.base_spd = 10
@@ -54,6 +65,7 @@ func _make_hero() -> ClassData:
 	d.unique_command_name = "連携"
 	d.unique_command_description = "仲間1人にこのターン追加行動を付与する"
 	d.unique_targets_ally = true
+	d.starting_skills = _skills(["兜割り", "ヒール"])
 	return d
 
 func _make_warrior() -> ClassData:
@@ -63,6 +75,7 @@ func _make_warrior() -> ClassData:
 	d.passive_description = "攻撃を受けるたびATKバフが累積する（最大5段）。バトル終了でリセット。"
 	d.unique_command_name = "雄叫び"
 	d.unique_command_description = "自身への被攻撃確率UP（挑発）＋ATKバフ1段階増加"
+	d.starting_skills = _skills(["兜割り", "反撃の構え"])
 	return d
 
 func _make_mage() -> ClassData:
@@ -72,6 +85,7 @@ func _make_mage() -> ClassData:
 	d.passive_description = "前ターンに魔法スキルを使っているとATKバフ発動"
 	d.unique_command_name = "静詠"
 	d.unique_command_description = "スキルを使わずバフ状態を維持しながらMPを小回復"
+	d.starting_skills = _skills(["ファイアII", "集中"])
 	return d
 
 func _make_cleric() -> ClassData:
@@ -82,6 +96,7 @@ func _make_cleric() -> ClassData:
 	d.unique_command_name = "加護"
 	d.unique_command_description = "指定したキャラに中程度の回復＋DEFバフを付与"
 	d.unique_targets_ally = true
+	d.starting_skills = _skills(["ヒール", "バリア"])
 	return d
 
 func _make_thief() -> ClassData:
@@ -92,6 +107,7 @@ func _make_thief() -> ClassData:
 	d.unique_command_name = "盗む"
 	d.unique_command_description = "敵1体からランダムでアイテム・ゴールド・特殊アイテムを入手（成功率60%・1体1回）"
 	d.unique_targets_enemy = true
+	d.starting_skills = _skills(["煙幕", "毒手"])
 	return d
 
 func _make_archer() -> ClassData:
@@ -102,6 +118,7 @@ func _make_archer() -> ClassData:
 	d.unique_command_name = "集中照準"
 	d.unique_command_description = "標的を1体設定または切り替える。切り替えると精度リセット。"
 	d.unique_targets_enemy = true
+	d.starting_skills = _skills(["スナイプ", "集中"])
 	return d
 
 func _make_monk() -> ClassData:
@@ -111,6 +128,7 @@ func _make_monk() -> ClassData:
 	d.passive_description = "攻撃型: ATK+30%/DEF-20% / 防御型: ダメージ-30%/被攻撃で気+1 / 気功型: MP-30%/気スキル解禁"
 	d.unique_command_name = "型変え"
 	d.unique_command_description = "型を順番に切り替える（攻撃型→防御型→気功型→繰り返し）"
+	d.starting_skills = _skills(["気功波", "反撃の構え"])
 	return d
 
 func _make_summoner() -> ClassData:
@@ -120,6 +138,7 @@ func _make_summoner() -> ClassData:
 	d.passive_description = "召喚物が毎ターン自動で行動する"
 	d.unique_command_name = "召喚"
 	d.unique_command_description = "精霊を1体召喚する（最大2体同時展開）"
+	d.starting_skills = _skills(["ファイアII", "挑発"])
 	return d
 
 func _make_sage() -> ClassData:
@@ -129,6 +148,7 @@ func _make_sage() -> ClassData:
 	d.passive_description = "敵が次のターンに何をするか事前に確認できる"
 	d.unique_command_name = "予言"
 	d.unique_command_description = "任意のスキルを仕込む。次ターンに追加先制行動として発動（MPは今ターン消費）"
+	d.starting_skills = _skills(["ファイアII", "バリア"])
 	return d
 
 func _make_alchemist() -> ClassData:
@@ -138,4 +158,5 @@ func _make_alchemist() -> ClassData:
 	d.passive_description = "敵撃破時にランダム素材を1個入手（最大5個保持）"
 	d.unique_command_name = "調合"
 	d.unique_command_description = "素材を1つ消費し、指定アイテムをその場で即生成・即使用"
+	d.starting_skills = _skills(["毒手", "かばう"])
 	return d
