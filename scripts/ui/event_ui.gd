@@ -1,8 +1,9 @@
 extends Control
 
-## Random event node screen. Picks one event at random on entry, presents
-## the player with a flavor description and 2-3 choices, applies the chosen
-## effect, then lets the player leave back to the map.
+## Random event node screen. Picks one event at random on entry.
+## Each event is framed as a はい / いいえ question; one or both branches may
+## lead to a follow-up 2-choice question, so a single event resolves through
+## an effective 3-4 choice decision tree before returning to the map.
 
 var _vbox: VBoxContainer
 var _choices_box: VBoxContainer
@@ -37,7 +38,7 @@ func _build_layout() -> void:
 	desc.name = "EventDesc"
 	desc.bbcode_enabled = true
 	desc.fit_content = true
-	desc.custom_minimum_size = Vector2(0, 90)
+	desc.custom_minimum_size = Vector2(0, 110)
 	desc.add_theme_font_size_override("normal_font_size", 16)
 	_vbox.add_child(desc)
 
@@ -74,6 +75,11 @@ func _set_header(title: String, body: String) -> void:
 	var d := _vbox.get_node("EventDesc") as RichTextLabel
 	d.text = body
 
+func _clear_choices() -> void:
+	for child in _choices_box.get_children():
+		_choices_box.remove_child(child)
+		child.queue_free()
+
 func _add_choice(label: String, handler: Callable, enabled: bool = true) -> void:
 	var btn := Button.new()
 	btn.text = label
@@ -82,12 +88,32 @@ func _add_choice(label: String, handler: Callable, enabled: bool = true) -> void
 	btn.pressed.connect(handler)
 	_choices_box.add_child(btn)
 
+## Presents a はい / いいえ question.
+func _ask_yes_no(question: String, on_yes: Callable, on_no: Callable,
+		yes_label: String = "はい", no_label: String = "いいえ",
+		yes_enabled: bool = true) -> void:
+	_clear_choices()
+	if question != "":
+		var d := _vbox.get_node("EventDesc") as RichTextLabel
+		d.text = d.text + "\n\n[b]%s[/b]" % question
+	_add_choice("⭕ " + yes_label, on_yes, yes_enabled)
+	_add_choice("❌ " + no_label, on_no)
+
+## Presents a follow-up 2-choice question (replaces the description body).
+func _ask_two(title: String, body: String,
+		label_a: String, on_a: Callable,
+		label_b: String, on_b: Callable,
+		a_enabled: bool = true, b_enabled: bool = true) -> void:
+	_set_header(title, body)
+	_clear_choices()
+	_add_choice(label_a, on_a, a_enabled)
+	_add_choice(label_b, on_b, b_enabled)
+
 func _resolve(result_text: String) -> void:
 	if _resolved:
 		return
 	_resolved = true
-	for child in _choices_box.get_children():
-		child.queue_free()
+	_clear_choices()
 	_result_label.text = result_text
 	_leave_btn.visible = true
 
@@ -100,9 +126,6 @@ func _show_random_event() -> void:
 	var events := [
 		_event_treasure_chest,
 		_event_healing_spring,
-		_event_wandering_merchant,
-		_event_wounded_traveler,
-		_event_mysterious_altar,
 		_event_old_hermit,
 		_event_monster_cub,
 		_event_fallen_hero_grave,
@@ -112,303 +135,272 @@ func _show_random_event() -> void:
 		_event_ruined_tavern,
 		_event_thunder_god_trial,
 		_event_suspicious_egg,
+		_event_wishing_well,
 	]
 	var rng := GameState.run_rng
 	var idx := rng.randi() % events.size()
 	events[idx].call()
 
-# ── Events ────────────────────────────────────────────────────────
+# ── 📦 古びた宝箱 ─────────────────────────────────────────────────
 
 func _event_treasure_chest() -> void:
 	_set_header("📦 古びた宝箱",
-		"道端に古びた宝箱が置かれている。鍵はかかっていないようだ。\n罠の可能性もあるが…どうする？")
-	_add_choice("開ける（リスクあり）", _chest_open)
-	_add_choice("そっとしておく", _chest_ignore)
+		"道端に古びた宝箱が置かれている。\nほんのり魔力を感じる…罠かもしれない。")
+	_ask_yes_no("宝箱を開けてみるか？", _chest_yes, _chest_no)
 
-func _chest_open() -> void:
+func _chest_yes() -> void:
+	_ask_two("📦 古びた宝箱",
+		"近づくと、宝箱には頑丈な錠前がかかっていた。",
+		"💪 力ずくでこじ開ける", _chest_force,
+		"🔍 慎重に鍵穴を調べる", _chest_careful)
+
+func _chest_force() -> void:
 	var rng := GameState.run_rng
-	if rng.randf() < 0.7:
-		var gold := rng.randi_range(35, 70)
+	if rng.randf() < 0.6:
+		var gold := rng.randi_range(45, 80)
 		GameState.collect_gold(gold)
-		_resolve("[color=gold]宝箱には %d ゴールドが入っていた！[/color]" % gold)
+		_resolve("[color=gold]バキッ！錠前を破壊して開けると、%d ゴールドが入っていた！[/color]" % gold)
 	else:
 		var lost := _damage_party_percent(0.15)
-		_resolve("[color=red]罠だ！毒矢が飛び出し、パーティ全員が %d ダメージを受けた…[/color]" % lost)
+		_resolve("[color=red]無理にこじ開けた瞬間、毒針が飛び出した！\nパーティ全員が合計 %d ダメージを受けた…[/color]" % lost)
 
-func _chest_ignore() -> void:
-	_resolve("用心して宝箱には触れずに先へ進んだ。")
+func _chest_careful() -> void:
+	var rng := GameState.run_rng
+	if rng.randf() < 0.85:
+		var gold := rng.randi_range(25, 50)
+		GameState.collect_gold(gold)
+		_resolve("[color=gold]慎重に罠を解除して開けた。%d ゴールドを安全に手に入れた。[/color]" % gold)
+	else:
+		_resolve("[color=yellow]鍵穴を調べているうちに、中身が空だと気づいた。\n誰かに先を越されていたようだ…[/color]")
+
+func _chest_no() -> void:
+	_resolve("用心して宝箱には触れずに先へ進んだ。\n君子危うきに近寄らず、だ。")
+
+# ── 💧 癒しの泉 ───────────────────────────────────────────────────
 
 func _event_healing_spring() -> void:
 	_set_header("💧 癒しの泉",
-		"澄んだ水をたたえた泉を見つけた。神秘的な力が宿っているようだ。")
-	_add_choice("水を飲む（HP回復）", _spring_hp)
-	_add_choice("水を浴びる（MP回復）", _spring_mp)
+		"澄んだ水をたたえた泉を見つけた。\n神秘的な力が宿っているようだ。")
+	_ask_yes_no("泉の力を借りるか？", _spring_yes, _spring_no)
+
+func _spring_yes() -> void:
+	_ask_two("💧 癒しの泉",
+		"泉の水は虹色に輝いている。どう使う？",
+		"🩸 水を飲む（HP回復）", _spring_hp,
+		"✨ 水を浴びる（MP回復）", _spring_mp)
 
 func _spring_hp() -> void:
-	var total := _heal_party_percent(0.40)
+	var total := _heal_party_percent(0.45)
 	_resolve("[color=lightgreen]泉の水を飲み、パーティ全員が合計 %d HP 回復した！[/color]" % total)
 
 func _spring_mp() -> void:
-	var total := _restore_party_mp_percent(0.50)
+	var total := _restore_party_mp_percent(0.55)
 	_resolve("[color=aqua]泉の水を浴び、パーティ全員が合計 %d MP 回復した！[/color]" % total)
 
-func _event_wandering_merchant() -> void:
-	_set_header("🎲 彷徨う商人",
-		"怪しげな商人が賭けを持ちかけてきた。\n「20ゴールドで、運が良ければ倍以上にして返そう…」")
-	var can_afford := GameState.run_gold >= 20
-	_add_choice("賭ける（20G）", _merchant_gamble, can_afford)
-	if not can_afford:
-		_add_choice("（ゴールドが足りない）", func() -> void: pass, false)
-	_add_choice("立ち去る", _merchant_leave)
+func _spring_no() -> void:
+	_resolve("「うまい話には裏がある」と泉には近づかなかった。")
 
-func _merchant_gamble() -> void:
-	if not GameState.spend_run_gold(20):
-		_resolve("ゴールドが足りなかった…")
-		return
-	var rng := GameState.run_rng
-	var roll := rng.randf()
-	if roll < 0.45:
-		GameState.collect_gold(60)
-		_resolve("[color=gold]大当たり！60 ゴールドを手にした！（差引 +40G）[/color]")
-	elif roll < 0.75:
-		GameState.collect_gold(20)
-		_resolve("[color=yellow]引き分け。20 ゴールドが返ってきた。[/color]")
-	else:
-		_resolve("[color=red]はずれ…商人は笑いながら去っていった。（-20G）[/color]")
-
-func _merchant_leave() -> void:
-	_resolve("胡散臭い商人には関わらず先へ進んだ。")
-
-func _event_wounded_traveler() -> void:
-	_set_header("🩹 負傷した旅人",
-		"傷ついた旅人が道端でうずくまっている。\n「すまない…薬を買う金もなくて…」")
-	var can_afford := GameState.run_gold >= 15
-	_add_choice("助ける（15G）", _traveler_help, can_afford)
-	if not can_afford:
-		_add_choice("（ゴールドが足りない）", func() -> void: pass, false)
-	_add_choice("見て見ぬふりをする", _traveler_ignore)
-
-func _traveler_help() -> void:
-	if not GameState.spend_run_gold(15):
-		_resolve("ゴールドが足りなかった…")
-		return
-	# Reward: a random item
-	var item := _make_random_item()
-	GameState.add_item(item)
-	_resolve("[color=lightgreen]旅人は礼にと「%s」を譲ってくれた！[/color]\n(%s)" % [item.item_name, item.description])
-
-func _traveler_ignore() -> void:
-	var rng := GameState.run_rng
-	var gold := rng.randi_range(5, 12)
-	GameState.collect_gold(gold)
-	_resolve("旅人を素通りした。道端に落ちていた %d ゴールドを拾った。" % gold)
-
-func _event_mysterious_altar() -> void:
-	_set_header("🗿 謎の祭壇",
-		"古代の祭壇がある。「生命を捧げよ、さらば富を与えん」と刻まれている。")
-	_add_choice("HPを捧げる（全員HP15%）", _altar_sacrifice)
-	_add_choice("祈りを捧げる（無償）", _altar_pray)
-	_add_choice("立ち去る", _altar_leave)
-
-func _altar_sacrifice() -> void:
-	var lost := _damage_party_percent(0.15)
-	var gold := GameState.run_rng.randi_range(50, 90)
-	GameState.collect_gold(gold)
-	_resolve("[color=gold]祭壇が輝いた！%d ゴールドを得た。[/color]\n[color=red]（HPを合計 %d 失った）[/color]" % [gold, lost])
-
-func _altar_pray() -> void:
-	var rng := GameState.run_rng
-	if rng.randf() < 0.5:
-		var total := _heal_party_percent(0.20)
-		_resolve("[color=lightgreen]祈りが通じた。柔らかな光がパーティを包み、合計 %d HP 回復した。[/color]" % total)
-	else:
-		_resolve("祈りを捧げたが、特に何も起こらなかった…")
-
-func _altar_leave() -> void:
-	_resolve("不気味な祭壇には近づかず立ち去った。")
-
-# ── 老仙人の問い ──────────────────────────────────────────────────
+# ── 🧙 老仙人の問い ───────────────────────────────────────────────
 
 func _event_old_hermit() -> void:
 	_set_header("🧙 老仙人の問い",
-		"洞窟の前に白髪の老人が座っている。\n「旅人よ、我の問いに答えてみせよ。\n\n"力なき正義"と"正義なき力"、どちらが真に危険か？」")
-	_add_choice("「力なき正義」と答える", _hermit_justice)
-	_add_choice("「正義なき力」と答える", _hermit_power)
-	_add_choice("「どちらも同じ」と答える", _hermit_both)
+		"洞窟の前に白髪の老人が座っている。\n「旅人よ、我の問いに答える勇気はあるか？」")
+	_ask_yes_no("問いに答えるか？", _hermit_yes, _hermit_no)
+
+func _hermit_yes() -> void:
+	_ask_two("🧙 老仙人の問い",
+		"「"力なき正義"と"正義なき力"…\nより危険なのはどちらだと思う？」",
+		"⚖️ 力なき正義", _hermit_justice,
+		"🗡️ 正義なき力", _hermit_power)
 
 func _hermit_justice() -> void:
 	var total := _heal_party_percent(0.25)
-	_resolve("[color=lightgreen]「ほほう…謙虚な答えよのう」\n老人は微笑み、光を放った。パーティ全員のHPが合計 %d 回復した。[/color]" % total)
+	_resolve("[color=lightgreen]「ほほう…謙虚な答えよのう」\n老人は微笑み、光を放った。HP +%d 回復した。[/color]" % total)
 
 func _hermit_power() -> void:
-	var gold := GameState.run_rng.randi_range(40, 60)
+	var gold := GameState.run_rng.randi_range(40, 65)
 	GameState.collect_gold(gold)
-	_resolve("[color=gold]「正しい！力こそが全てを決める！」\n老人は黄金の袋を放り投げた。%d ゴールドを得た。[/color]" % gold)
+	_resolve("[color=gold]「正しい！力こそが全てを決める！」\n老人は黄金の袋を投げてよこした。%d ゴールドを得た。[/color]" % gold)
 
-func _hermit_both() -> void:
-	var total_hp := _heal_party_percent(0.15)
-	var total_mp := _restore_party_mp_percent(0.30)
-	_resolve("[color=aqua]「…ふむ、哲学者よのう」\n老人は眩しそうに笑い、すっと消えた。\nHP +%d、MP +%d 回復した。[/color]" % [total_hp, total_mp])
+func _hermit_no() -> void:
+	var total := _restore_party_mp_percent(0.20)
+	_resolve("[color=aqua]「無理にとは言わぬ。…だが、その慎重さも美徳よ」\n老人は静かに念を送ってくれた。MP +%d 回復。[/color]" % total)
 
-# ── 魔物の子供 ───────────────────────────────────────────────────
+# ── 🐾 魔物の子供 ─────────────────────────────────────────────────
 
 func _event_monster_cub() -> void:
 	_set_header("🐾 魔物の子供",
-		"茂みの中から小さな魔物の子供がひょっこり顔を出した。\n傷を負っているようで、こちらをじっと見つめている…")
-	_add_choice("傷を手当てしてやる", _cub_heal)
-	_add_choice("餌を与える（見逃す）", _cub_feed)
-	_add_choice("追い払う", _cub_chase)
+		"茂みの中から小さな魔物の子供が顔を出した。\n傷を負っていて、こちらをじっと見つめている…")
+	_ask_yes_no("助けてやるか？", _cub_yes, _cub_no)
+
+func _cub_yes() -> void:
+	_ask_two("🐾 魔物の子供",
+		"子供はおびえている。どう接する？",
+		"💊 傷を手当てする", _cub_heal,
+		"🍖 餌を分け与える", _cub_feed)
 
 func _cub_heal() -> void:
 	var item := _make_random_item()
 	GameState.add_item(item)
-	_resolve("[color=lightgreen]子供の傷を癒してやると、嬉しそうに鳴いて走り去った。\n礼のつもりか、光るものを置いていった。「%s」を入手！[/color]" % item.item_name)
+	_resolve("[color=lightgreen]傷を癒してやると、嬉しそうに鳴いて走り去った。\n礼のつもりか「%s」を置いていった！[/color]" % item.item_name)
 
 func _cub_feed() -> void:
-	var total := _heal_party_percent(0.10)
-	_resolve("[color=lightgreen]食べ物を差し出すと、子供はぺろぺろ舐めて喜んだ。\n不思議なことに、見ているこちらも元気が出てきた。HP +%d 回復。[/color]" % total)
+	var total := _heal_party_percent(0.12)
+	_resolve("[color=lightgreen]食べ物を差し出すと、ぺろぺろ舐めて喜んだ。\n不思議とこちらも元気が出てきた。HP +%d 回復。[/color]" % total)
 
-func _cub_chase() -> void:
-	_resolve("子供は悲しそうな目でこちらを見ながら、森の奥へ走り去った。\n…なんだか後味が悪い。")
+func _cub_no() -> void:
+	_resolve("関わり合いを避け、その場を立ち去った。\n子供の悲しげな鳴き声が背中に残った…")
 
-# ── 英雄の墓 ─────────────────────────────────────────────────────
+# ── ⚔️ 英雄の墓 ───────────────────────────────────────────────────
 
 func _event_fallen_hero_grave() -> void:
 	_set_header("⚔️ 英雄の墓",
-		"道端に立派な墓石がある。碑文には\n「ここに眠る英雄よ、汝の勇気は永遠なり」と刻まれている。\n傍らには枯れた花が供えられている。")
-	_add_choice("碑文を読んで手を合わせる", _grave_pray)
-	_add_choice("新しい花を供える（持っていれば）", _grave_flower)
-	_add_choice("墓を調べる", _grave_search)
+		"道端に立派な墓石がある。\n「ここに眠る英雄よ、汝の勇気は永遠なり」と刻まれている。")
+	_ask_yes_no("墓に立ち寄るか？", _grave_yes, _grave_no)
+
+func _grave_yes() -> void:
+	_ask_two("⚔️ 英雄の墓",
+		"墓の前に立った。どうする？",
+		"🙏 静かに手を合わせる", _grave_pray,
+		"⛏️ 副葬品がないか調べる", _grave_search)
 
 func _grave_pray() -> void:
 	var total := _restore_party_mp_percent(0.40)
-	_resolve("[color=aqua]静かに手を合わせると、英雄の魂が語りかけてくる気がした。\nパーティ全員の気力が満ちてきた。MP +%d 回復。[/color]" % total)
-
-func _grave_flower() -> void:
-	var gold := GameState.run_rng.randi_range(30, 50)
-	GameState.collect_gold(gold)
-	_resolve("[color=gold]花を供えると、地面から金色の光が溢れた。\n英雄のご加護か、%d ゴールドが現れた。[/color]" % gold)
+	_resolve("[color=aqua]静かに手を合わせると、英雄の魂が語りかけてくる気がした。\n気力が満ちてきた。MP +%d 回復。[/color]" % total)
 
 func _grave_search() -> void:
 	var rng := GameState.run_rng
 	if rng.randf() < 0.5:
-		var gold := rng.randi_range(20, 40)
+		var gold := rng.randi_range(25, 45)
 		GameState.collect_gold(gold)
-		_resolve("[color=gold]墓の裏に小さな石があった。持ち上げると布袋が出てきた。%d ゴールドを得た。[/color]" % gold)
+		_resolve("[color=gold]墓の裏に布袋が隠されていた。%d ゴールドを得た。[/color]" % gold)
 	else:
-		var lost := _damage_party_percent(0.12)
-		_resolve("[color=red]墓を掘り返そうとした瞬間、怨霊が飛び出してきた！\nパーティ全員が合計 %d ダメージを受けた。\nやめておけばよかった…[/color]" % lost)
+		var lost := _damage_party_percent(0.15)
+		_resolve("[color=red]墓を掘り返した瞬間、怨霊が飛び出した！\nパーティが合計 %d ダメージを受けた。罰当たりめ…[/color]" % lost)
 
-# ── 盗賊団の奇襲 ─────────────────────────────────────────────────
+func _grave_no() -> void:
+	_resolve("英雄の眠りを妨げぬよう、黙礼して通り過ぎた。")
+
+# ── 🗡️ 盗賊団の奇襲 ──────────────────────────────────────────────
 
 func _event_bandit_ambush() -> void:
 	_set_header("🗡️ 盗賊団の奇襲",
-		"「動くな！金目のものを全部置いていけ！」\n茂みから武装した盗賊が3人飛び出してきた。")
+		"「動くな！金目のものを置いていけ！」\n茂みから武装した盗賊が飛び出してきた。")
 	var can_pay := GameState.run_gold >= 25
-	_add_choice("大人しく払う（25G）", _bandit_pay, can_pay)
-	_add_choice("戦う構えを見せる（HP消費）", _bandit_fight)
-	_add_choice("交渉する", _bandit_negotiate)
+	_ask_yes_no("大人しく金を払うか？（25G）", _bandit_pay, _bandit_refuse,
+		"はい（払う）", "いいえ（払わない）", can_pay)
 
 func _bandit_pay() -> void:
 	if not GameState.spend_run_gold(25):
 		_resolve("ゴールドが足りなかった…")
 		return
-	_resolve("25 ゴールドを差し出すと、盗賊たちは満足げに去っていった。\n悔しいが、無事に通り過ぎることができた。")
+	_resolve("25 ゴールドを差し出すと、盗賊たちは満足げに去っていった。\n悔しいが、無事に通り過ぎられた。")
+
+func _bandit_refuse() -> void:
+	_ask_two("🗡️ 盗賊団の奇襲",
+		"「ほう、いい度胸だ！」\n盗賊が武器を構えた。どうする？",
+		"⚔️ 正面から戦う", _bandit_fight,
+		"💨 隙を突いて逃げる", _bandit_flee)
 
 func _bandit_fight() -> void:
 	var lost := _damage_party_percent(0.20)
-	var gold := GameState.run_rng.randi_range(30, 55)
+	var gold := GameState.run_rng.randi_range(35, 60)
 	GameState.collect_gold(gold)
-	_resolve("[color=orange]激しい戦いの末、盗賊を撃退した！\nパーティが合計 %d ダメージを受けたが、\n盗賊から %d ゴールドを奪い返した！[/color]" % [lost, gold])
+	_resolve("[color=orange]激戦の末、盗賊を撃退した！合計 %d ダメージを受けたが、\n盗賊の財布から %d ゴールドを奪い返した！[/color]" % [lost, gold])
 
-func _bandit_negotiate() -> void:
+func _bandit_flee() -> void:
 	var rng := GameState.run_rng
-	if rng.randf() < 0.4:
-		var gold := rng.randi_range(10, 25)
-		GameState.collect_gold(gold)
-		_resolve("[color=lightgreen]「お前ら、腕は立つのか？仕事の話があるが…」\n依頼を断ると、盗賊は舌打ちしながら %d ゴールドを置いていった。[/color]" % gold)
+	if rng.randf() < 0.6:
+		_resolve("[color=lightgreen]全力で走り、なんとか逃げ切った！\n何も失わずに済んだ。[/color]")
 	else:
-		var lost := _damage_party_percent(0.10)
-		_resolve("[color=red]「口先だけの奴は嫌いだ！」\n交渉は決裂。不意打ちを受け、パーティが合計 %d ダメージを受けた。[/color]" % lost)
+		var lost := _damage_party_percent(0.12)
+		_resolve("[color=red]背後から矢が飛んできた！\n逃げる途中でパーティが合計 %d ダメージを受けた。[/color]" % lost)
 
-# ── 占い師 ───────────────────────────────────────────────────────
+# ── 🔮 謎の占い師 ─────────────────────────────────────────────────
 
 func _event_fortune_teller() -> void:
 	_set_header("🔮 謎の占い師",
 		"天幕の中に老婆の占い師がいる。\n「お前たちの未来が見える…代金はゴールド10枚じゃ」")
 	var can_pay := GameState.run_gold >= 10
-	_add_choice("占ってもらう（10G）", _fortune_pay, can_pay)
-	_add_choice("タダで占ってもらおうとする", _fortune_cheat)
-	_add_choice("断る", _fortune_refuse)
+	_ask_yes_no("占ってもらうか？（10G）", _fortune_yes, _fortune_no,
+		"はい（10G）", "いいえ", can_pay)
 
-func _fortune_pay() -> void:
+func _fortune_yes() -> void:
 	if not GameState.spend_run_gold(10):
 		_resolve("ゴールドが足りなかった…")
 		return
+	_ask_two("🔮 謎の占い師",
+		"「何を占ってほしいんじゃ？」",
+		"💰 金運を占う", _fortune_gold,
+		"⚔️ 武運を占う", _fortune_battle)
+
+func _fortune_gold() -> void:
 	var rng := GameState.run_rng
-	var fortunes := [
-		"「次の戦いは厳しいが…諦めるな。勝機は必ずある」\n[color=lightgreen]パーティ全員の士気が上がった。MP 全回復！[/color]",
-		"「金運が巡ってくるじゃろう。ほれ、これでも持っていきなさい」\n[color=gold]" + "+%d ゴールド！[/color]" % rng.randi_range(25, 45),
-		"「道に迷う者がいるな…方角を教えよう」\n地図を広げ、隠し道を教えてもらった。[color=aqua]次のマスの情報が分かった気がした。[/color]",
-		"「死相が出ておるぞ！お前たちは— 冗談じゃ冗談。\n[color=lightgreen]まあ元気出せ」HP 20%回復。[/color]",
-	]
-	var fortune := fortunes[rng.randi() % fortunes.size()]
-	if "MP 全回復" in fortune:
-		_restore_party_mp_percent(1.0)
-	elif "+%d" in fortune:
+	if rng.randf() < 0.7:
 		var gold := rng.randi_range(25, 45)
 		GameState.collect_gold(gold)
-	elif "HP 20%" in fortune:
-		_heal_party_percent(0.20)
-	_resolve("「見えたぞ、見えたぞ…」\n%s" % fortune)
+		_resolve("[color=gold]「金運が巡ってきておる！ほれ、持っていきなさい」\n水晶玉から金貨が溢れ出た。%d ゴールドを得た！[/color]" % gold)
+	else:
+		_resolve("[color=yellow]「ふむ…今は時期が悪いようじゃ。無駄遣いは控えなされ」\n10ゴールド分の助言だけが残った。[/color]")
 
-func _fortune_cheat() -> void:
-	var lost := _damage_party_percent(0.08)
-	_resolve("[color=red]「無礼者！」\n老婆は怒り、呪いをかけてきた！\nパーティ全員が合計 %d ダメージを受けた。\nタダより高いものはない…[/color]" % lost)
+func _fortune_battle() -> void:
+	var total := _restore_party_mp_percent(0.60)
+	_resolve("[color=aqua]「次の戦い、勝機はある。気を研ぎ澄ませておけ」\n占い師の言葉で集中力が高まった。MP +%d 回復！[/color]" % total)
 
-func _fortune_refuse() -> void:
-	_resolve("占いなどに頼る必要はない。自分の力を信じて先へ進んだ。")
+func _fortune_no() -> void:
+	_resolve("占いなど信じない。自分の運命は自分で切り開く。")
 
-# ── 呪われた石像 ─────────────────────────────────────────────────
+# ── 😈 呪われた石像 ──────────────────────────────────────────────
 
 func _event_cursed_statue() -> void:
 	_set_header("😈 呪われた石像",
-		"道の真ん中に奇妙な石像がある。\n宝石で飾られていて、いかにも高そうだが…\n「触れるな」という注意書きがある。")
-	_add_choice("宝石を奪う（リスク大）", _statue_steal)
-	_add_choice("注意書き通り触れずに通る", _statue_pass)
-	_add_choice("石像を破壊する", _statue_destroy)
+		"道の真ん中に宝石で飾られた石像がある。\nいかにも高そうだが「触れるな」と刻まれている…")
+	_ask_yes_no("宝石を奪うか？", _statue_yes, _statue_no)
 
-func _statue_steal() -> void:
+func _statue_yes() -> void:
+	_ask_two("😈 呪われた石像",
+		"宝石に手を伸ばすと、石像の目がほのかに光った。どうする？",
+		"💎 構わず奪い取る", _statue_grab,
+		"🧿 お守りを置いてから奪う", _statue_ward)
+
+func _statue_grab() -> void:
 	var rng := GameState.run_rng
 	if rng.randf() < 0.5:
 		var gold := rng.randi_range(60, 100)
 		GameState.collect_gold(gold)
-		_resolve("[color=gold]宝石を剥ぎ取ると…何も起きなかった！\n%d ゴールド相当の宝石を手に入れた！ラッキー！[/color]" % gold)
+		_resolve("[color=gold]宝石を剥ぎ取った…何も起きなかった！\n%d ゴールド相当の宝石を手に入れた！[/color]" % gold)
 	else:
 		var lost := _damage_party_percent(0.25)
-		_resolve("[color=red]石像の目が赤く光った！\n強烈な呪いが放たれ、パーティ全員が合計 %d ダメージを受けた！\n呪いには気をつけろ…[/color]" % lost)
+		_resolve("[color=red]石像の目が真っ赤に光った！\n強烈な呪いでパーティが合計 %d ダメージを受けた！[/color]" % lost)
 
-func _statue_pass() -> void:
-	var total := _heal_party_percent(0.08)
+func _statue_ward() -> void:
+	var rng := GameState.run_rng
+	if rng.randf() < 0.85:
+		var gold := rng.randi_range(35, 60)
+		GameState.collect_gold(gold)
+		_resolve("[color=gold]お守りが呪いを吸収してくれた。\n安全に %d ゴールド分の宝石を手に入れた！[/color]" % gold)
+	else:
+		var lost := _damage_party_percent(0.10)
+		_resolve("[color=red]お守りでも防ぎきれない呪いだった…\nパーティが合計 %d ダメージを受けた。[/color]" % lost)
+
+func _statue_no() -> void:
+	var total := _heal_party_percent(0.10)
 	_resolve("[color=lightgreen]注意書きに従い、静かに脇を通り過ぎた。\n何かに見守られている気がして、心が和んだ。HP +%d 回復。[/color]" % total)
 
-func _statue_destroy() -> void:
-	var rng := GameState.run_rng
-	var lost := _damage_party_percent(0.12)
-	var gold := rng.randi_range(15, 30)
-	GameState.collect_gold(gold)
-	_resolve("[color=orange]石像を叩き割ると、中から小袋が転がり出てきた！\n%d ゴールドを得たが、破壊の衝撃でパーティが合計 %d ダメージを受けた。[/color]" % [gold, lost])
-
-# ── 廃墟の酒場 ───────────────────────────────────────────────────
+# ── 🍺 廃墟の酒場 ─────────────────────────────────────────────────
 
 func _event_ruined_tavern() -> void:
 	_set_header("🍺 廃墟の酒場",
-		"廃屋だと思っていたら、まだ営業中の酒場だった。\n老いた店主が一人、カウンターを磨いている。\n「久しぶりの客だ。何にする？」")
+		"廃屋だと思っていたら、まだ営業中の酒場だった。\n老店主が一人、カウンターを磨いている。「客か、珍しいな」")
+	_ask_yes_no("酒場に立ち寄るか？", _tavern_yes, _tavern_no)
+
+func _tavern_yes() -> void:
 	var can_rest := GameState.run_gold >= 20
-	var can_drink := GameState.run_gold >= 10
-	_add_choice("宿泊して休む（20G・HP/MP大回復）", _tavern_rest, can_rest)
-	_add_choice("酒を一杯飲む（10G）", _tavern_drink, can_drink)
-	_add_choice("情報だけ聞く（無料）", _tavern_info)
+	_ask_two("🍺 廃墟の酒場",
+		"「さて、何にする？」",
+		"🛏️ 宿泊する（20G・HP/MP大回復）", _tavern_rest,
+		"💬 噂話を聞く（無料）", _tavern_info,
+		can_rest, true)
 
 func _tavern_rest() -> void:
 	if not GameState.spend_run_gold(20):
@@ -416,99 +408,122 @@ func _tavern_rest() -> void:
 		return
 	var hp := _heal_party_percent(0.60)
 	var mp := _restore_party_mp_percent(0.60)
-	_resolve("[color=lightgreen]藁のベッドだったが、久しぶりの屋根の下での睡眠はありがたかった。\nHP +%d、MP +%d 回復！[/color]" % [hp, mp])
-
-func _tavern_drink() -> void:
-	if not GameState.spend_run_gold(10):
-		_resolve("ゴールドが足りなかった…")
-		return
-	var rng := GameState.run_rng
-	if rng.randf() < 0.6:
-		var hp := _heal_party_percent(0.20)
-		var mp := _restore_party_mp_percent(0.20)
-		_resolve("[color=lightgreen]地元産の酒は芳醇な味わいで、体に活力が戻ってきた。\nHP +%d、MP +%d 回復！[/color]" % [hp, mp])
-	else:
-		var lost := _damage_party_percent(0.08)
-		_resolve("[color=red]どうやらまずい銘柄を引いたらしい。\n腹を壊してパーティ全員が合計 %d ダメージを受けた…[/color]" % lost)
+	_resolve("[color=lightgreen]久しぶりの屋根の下での睡眠はありがたかった。\nHP +%d、MP +%d 回復！[/color]" % [hp, mp])
 
 func _tavern_info() -> void:
 	var tips := [
-		"「この先には強い敵が出るらしい。装備は整えておきなさい」",
-		"「ボスは正面から行くより、足元を狙うといいらしいぞ」",
-		"「最近、焚き火ではよく旅人が一休みしていくらしい。癒されるんだとよ」",
-		"「あそこの祭壇は本物じゃないって噂だがな。まあ、信じるかどうかは自由だ」",
-		"「旅に出るなら、仲間は大切にしな。一人じゃ生き残れないからな」",
+		"「この先には強い敵が出るらしい。装備は整えておきな」",
+		"「ボスは正面より足元を狙うといいって噂だぞ」",
+		"「焚き火ではよく旅人が一休みしていくらしい」",
+		"「旅に出るなら仲間を大切にしな。一人じゃ生き残れん」",
 	]
 	var tip := tips[GameState.run_rng.randi() % tips.size()]
-	_resolve("店主は手を止め、しばらく考えてからこう言った。\n[color=yellow]%s[/color]" % tip)
+	_resolve("店主は手を止め、しばらく考えてから言った。\n[color=yellow]%s[/color]" % tip)
 
-# ── 雷神の試練 ───────────────────────────────────────────────────
+func _tavern_no() -> void:
+	_resolve("怪しげな酒場には深入りせず、先を急いだ。")
+
+# ── ⚡ 雷神の試練 ─────────────────────────────────────────────────
 
 func _event_thunder_god_trial() -> void:
 	_set_header("⚡ 雷神の試練",
-		"空が突然曇り、天から声が響いた。\n「勇者よ、我は雷神なり。汝の勇気を試さん。\n恐れず前に進む者か、それとも臆病者か？」")
-	_add_choice("「恐れぬ！かかってこい！」と叫ぶ", _thunder_brave)
-	_add_choice("「神よ、試練をお与えください」と跪く", _thunder_kneel)
-	_add_choice("空を無視して歩き続ける", _thunder_ignore)
+		"空が突然曇り、天から声が響いた。\n「勇者よ、我は雷神なり。汝の勇気を試さん」")
+	_ask_yes_no("試練を受けるか？", _thunder_yes, _thunder_no)
+
+func _thunder_yes() -> void:
+	_ask_two("⚡ 雷神の試練",
+		"「ならば示せ。汝は誇り高き者か、慎ましき者か？」",
+		"🔥 「恐れぬ！かかってこい！」", _thunder_brave,
+		"🙇 「神よ、お導きを」と跪く", _thunder_kneel)
 
 func _thunder_brave() -> void:
 	var lost := _damage_party_percent(0.18)
-	var hp := _heal_party_percent(0.40)
-	_resolve("[color=orange]稲妻がパーティに降り注いだ！合計 %d ダメージ！\nしかし、雷神の力が体に宿り、傷がみるみる癒えていった。HP +%d 回復！\n「よき勇気よ。先へ進め！」[/color]" % [lost, hp])
+	var hp := _heal_party_percent(0.45)
+	_resolve("[color=orange]稲妻が降り注いだ！合計 %d ダメージ！\nしかし雷神の力が宿り、傷が癒えた。HP +%d 回復！\n「よき勇気よ。先へ進め！」[/color]" % [lost, hp])
 
 func _thunder_kneel() -> void:
 	var mp := _restore_party_mp_percent(0.80)
-	_resolve("[color=aqua]「謙虚な者には恵みを授けよう」\n柔らかな雷光がパーティを包み、力が満ちてきた。\nMP +%d 回復！[/color]" % mp)
+	_resolve("[color=aqua]「謙虚な者には恵みを授けよう」\n柔らかな雷光に包まれ、力が満ちた。MP +%d 回復！[/color]" % mp)
 
-func _thunder_ignore() -> void:
+func _thunder_no() -> void:
 	var rng := GameState.run_rng
 	if rng.randf() < 0.5:
-		var gold := rng.randi_range(50, 80)
+		var gold := rng.randi_range(45, 75)
 		GameState.collect_gold(gold)
-		_resolve("[color=gold]神など信じん、とばかりに歩き続けると…\n地面に金貨が落ちていた。%d ゴールドを拾った。\n「…なかなかの豪胆者よ」と声がした気がした。[/color]" % gold)
+		_resolve("[color=gold]神を無視して歩き続けると、地面に金貨が落ちていた。%d ゴールド獲得。\n「…なかなかの豪胆者よ」と声がした気がした。[/color]" % gold)
 	else:
-		var lost := _damage_party_percent(0.20)
-		_resolve("[color=red]「無礼者めが！」\n怒った雷神が稲妻を落とした！パーティ全員が合計 %d ダメージを受けた！\n神は敬うものだ…[/color]" % lost)
+		var lost := _damage_party_percent(0.18)
+		_resolve("[color=red]「無礼者めが！」\n怒った雷神が稲妻を落とした！合計 %d ダメージ！[/color]" % lost)
 
-# ── 謎の卵 ───────────────────────────────────────────────────────
+# ── 🥚 謎の大きな卵 ──────────────────────────────────────────────
 
 func _event_suspicious_egg() -> void:
 	_set_header("🥚 謎の大きな卵",
-		"道の真ん中に人の頭ほどもある大きな卵が転がっている。\nほんのり温かく、中で何かが動いている気がする…")
-	_add_choice("温めて孵してあげる", _egg_hatch)
-	_add_choice("卵を持ち帰る（売り飛ばす）", _egg_sell)
-	_add_choice("割って中を見る", _egg_break)
+		"道の真ん中に人の頭ほどの大きな卵が転がっている。\nほんのり温かく、中で何かが動いている気がする…")
+	_ask_yes_no("卵を拾うか？", _egg_yes, _egg_no)
+
+func _egg_yes() -> void:
+	_ask_two("🥚 謎の大きな卵",
+		"卵を抱え上げた。さて、どうする？",
+		"🐣 温めて孵してみる", _egg_hatch,
+		"💰 村で売り飛ばす", _egg_sell)
 
 func _egg_hatch() -> void:
 	var rng := GameState.run_rng
-	var outcomes := [
-		func() -> String:
-			var hp := _heal_party_percent(0.30)
-			return "[color=lightgreen]可愛らしい妖精が生まれた！\nお礼に癒しの粉を振りかけてくれた。HP +%d 回復！[/color]" % hp,
-		func() -> String:
-			var item := _make_random_item()
-			GameState.add_item(item)
-			return "[color=lightgreen]大きなスライムが生まれ、嬉しそうに跳ねた後消えた。\n代わりに「%s」が残されていた。[/color]" % item.item_name,
-		func() -> String:
-			var lost := _damage_party_percent(0.12)
-			return "[color=red]小さなドラゴンが生まれた！\nいきなり炎を吐いてきて、パーティが合計 %d ダメージを受けた！\nその後、ケロッとした顔で飛び去っていった。[/color]" % lost,
-	]
-	var fn: Callable = outcomes[rng.randi() % outcomes.size()]
-	_resolve(fn.call())
+	var roll := rng.randi() % 3
+	if roll == 0:
+		var hp := _heal_party_percent(0.30)
+		_resolve("[color=lightgreen]可愛らしい妖精が生まれた！\nお礼に癒しの粉を振りかけてくれた。HP +%d 回復！[/color]" % hp)
+	elif roll == 1:
+		var item := _make_random_item()
+		GameState.add_item(item)
+		_resolve("[color=lightgreen]スライムが生まれ、嬉しそうに跳ねて消えた。\n代わりに「%s」が残されていた。[/color]" % item.item_name)
+	else:
+		var lost := _damage_party_percent(0.12)
+		_resolve("[color=red]小さなドラゴンが生まれ、いきなり炎を吐いた！\n合計 %d ダメージ！その後ケロッとした顔で飛び去った。[/color]" % lost)
 
 func _egg_sell() -> void:
 	var gold := GameState.run_rng.randi_range(40, 70)
 	GameState.collect_gold(gold)
-	_resolve("[color=gold]近くの村で卵を鑑定してもらうと「珍しい魔物の卵だ」と言われ、\n%d ゴールドで買い取ってもらえた！[/color]" % gold)
+	_resolve("[color=gold]村で鑑定すると「珍しい魔物の卵だ」と言われ、\n%d ゴールドで買い取ってもらえた！[/color]" % gold)
 
-func _egg_break() -> void:
+func _egg_no() -> void:
+	_resolve("「触らぬ神に祟りなし」と卵には手を出さなかった。")
+
+# ── 🪙 願いの井戸 ─────────────────────────────────────────────────
+
+func _event_wishing_well() -> void:
+	_set_header("🪙 願いの井戸",
+		"古い石造りの井戸がある。\n「コインを投げ入れれば願いが叶う」と言い伝えられているらしい。")
+	var can_toss := GameState.run_gold >= 5
+	_ask_yes_no("コインを投げ入れるか？（5G）", _well_yes, _well_no,
+		"はい（5G）", "いいえ", can_toss)
+
+func _well_yes() -> void:
+	if not GameState.spend_run_gold(5):
+		_resolve("ゴールドが足りなかった…")
+		return
+	_ask_two("🪙 願いの井戸",
+		"コインが水面に消えた。何を願う？",
+		"💪 体力の回復を願う", _well_health,
+		"💰 富を願う", _well_wealth)
+
+func _well_health() -> void:
+	var hp := _heal_party_percent(0.30)
+	var mp := _restore_party_mp_percent(0.30)
+	_resolve("[color=lightgreen]井戸から温かい光が立ち昇った。\n願いが届いたのか、HP +%d、MP +%d 回復した！[/color]" % [hp, mp])
+
+func _well_wealth() -> void:
 	var rng := GameState.run_rng
 	if rng.randf() < 0.5:
-		var hp := _heal_party_percent(0.25)
-		_resolve("[color=lightgreen]中から黄金色の液体が溢れ出た。\n不思議な甘い香りがして、思わず口にすると……体が軽くなった！\nHP +%d 回復。[/color]" % hp)
+		var gold := rng.randi_range(20, 45)
+		GameState.collect_gold(gold)
+		_resolve("[color=gold]井戸の底がきらめき、コインが溢れ出した！%d ゴールド獲得！\n（差引でもプラスだ）[/color]" % gold)
 	else:
-		var lost := _damage_party_percent(0.10)
-		_resolve("[color=red]中から真っ黒な煙が噴き出した！\n悪臭と毒気でパーティ全員が合計 %d ダメージを受けた…\n割らなければよかった。[/color]" % lost)
+		_resolve("[color=yellow]井戸はしんと静まり返ったまま…\nどうやら欲張りすぎたようだ。5ゴールドが無駄になった。[/color]")
+
+func _well_no() -> void:
+	_resolve("迷信は信じない、とそのまま井戸を後にした。")
 
 # ── Effect Helpers ────────────────────────────────────────────────
 
